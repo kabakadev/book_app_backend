@@ -14,7 +14,7 @@ class User(db.Model, SerializerMixin):
 
     #relationship
     revews = db.relationship('Review', back_populates='user',lazy='dynamic')
-    reading_list = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
+    reading_lists = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
 
     #validation and password handling]
     @validates('username')
@@ -55,6 +55,12 @@ class ReadingList(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
     user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
+
+    #relationship
+    user = db.relationship('User', back_populates='reading_lists')
+    books = db.relationship('ReadingListBook', back_populates='reading_list', lazy='dynamic')
+
+
 
 
     

@@ -30,4 +30,17 @@ class User(db.Model, SerializerMixin):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+
+#book model
+class Book(db.Model, SerializerMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    author = db.Column(db.String(255), nullable=False)
+    genre = db.Column(db.String(100))
+    description = db.Column(db.Text)
+    page_count = db.Column(db.Integer)
+    image_url = db.Column(db.String(255))
+    publication_year = db.Column(db.Integer)
+
+    
     

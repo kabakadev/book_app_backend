@@ -42,5 +42,8 @@ class Book(db.Model, SerializerMixin):
     image_url = db.Column(db.String(255))
     publication_year = db.Column(db.Integer)
 
+    #relationship
+    reviews=db.relationship('Review', back_populates='book',lazy='dynamic')
+    reading_list_books= db.relationship('ReadingListBook', back_populates='book')
     
     

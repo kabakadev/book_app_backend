@@ -75,6 +75,17 @@ class ReadingListBook(db.Model, SerializerMixin):
     #relationships
     reading_list = db.relationship('ReadingList', back_populates='books')
     book = db.relationship('Book', back_populates='reading_list_books')
+#review Model
+class Review(db.Model, SerializerMixin):
+    __tablename__ = 'reviews'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
+    book_id = db.Column(db.Integer, ForeignKey('books.id'), nullable=False)
+    review_text = db.Column(db.Text, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
 
 
 

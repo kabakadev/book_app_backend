@@ -33,6 +33,8 @@ class User(db.Model, SerializerMixin):
 
 #book model
 class Book(db.Model, SerializerMixin):
+    __tablename__ = 'books'
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     author = db.Column(db.String(255), nullable=False)
@@ -60,6 +62,15 @@ class ReadingList(db.Model, SerializerMixin):
     user = db.relationship('User', back_populates='reading_lists')
     books = db.relationship('ReadingListBook', back_populates='reading_list', lazy='dynamic')
 
+#Reading List book model
+class ReadingListBook(db.Model, SerializerMixin):
+    __tablename__ = 'reading_list_books'
+
+    id = db.Column(db.Integer, primary_key=True)
+    reading_list_id = db.Column(db.Integer, ForeignKey('reading_lists.id'), nullable=False)
+    book_id = db.Column(db.Integer, ForeignKey('books.id'), nullable=False)
+    note = db.Column(db.Text)
+    rating = db.Column(db.Integer)
 
 
 

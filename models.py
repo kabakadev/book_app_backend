@@ -12,4 +12,8 @@ class User(db.Model, SerializerMixin):
     password_hash = db.Column(db.String(255), nullable=False)
 
     #relationship
+    revews = db.relationship('Review', back_populates='user',lazy='dynamic')
+    reading_list = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
+
+    
     

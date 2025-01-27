@@ -45,5 +45,16 @@ class Book(db.Model, SerializerMixin):
     #relationship
     reviews=db.relationship('Review', back_populates='book',lazy='dynamic')
     reading_list_books= db.relationship('ReadingListBook', back_populates='book')
-    
+
+#Reading List model
+class ReadingList(db.Model, SerializerMixin):
+    __tablename__ = 'reading_lists'
+
+    id= db.Column(db.Integer, primary_key=True)
+    name=db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+    user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
+
+
     

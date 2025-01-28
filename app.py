@@ -16,10 +16,16 @@ class UserInfo(Resource):
         return jsonify([user.to_dict() for user in users])
 
     def post(self):
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        if not username or not password:
+            return {'error': 'Username and password are required'}, 422
+
         try:
-            data = request.get_json()
-            new_user = User(username=data['username'])
-            new_user.set_password(data['password'])
+    
+            new_user = User(username=username)
+            new_user.set_password(password)
             db.session.add(new_user)
             db.session.commit()
             return jsonify(new_user.to_dict()), 201
@@ -27,3 +33,33 @@ class UserInfo(Resource):
             db.session.rollback()
             return {"error": "Username must be unique."}, 400
 api.add_resource(UserInfo, '/users', '/users/<int:id>')
+
+class BookResource(Resource):
+    def get(self, id=None):
+        if id:
+            book = Book.query.get(id)
+            if book:
+                return jsonify(book.to_dict())
+            return {"error": "Book not found"}, 404
+        books = Book.query.all()
+        return jsonify([book.to_dict() for book in books])
+
+    def post(self):
+        try:
+            data = request.get_json()
+            new_book = Book(
+                title=data['title'],
+                author=data['author'],
+                genre=data.get('genre'),
+                description=data.get('description'),
+                page_count=data.get('page_count'),
+                image_url=data.get('image_url'),
+                publication_year=data.get('publication_year'),
+            )
+            db.session.add(new_book)
+            db.session.commit()
+            return jsonify(new_book.to_dict()), 201
+        except IntegrityError:
+            db.session.rollback()
+            return {"error": "Failed to create book. Please check the data."}, 400
+api.add_resource(BookResource, '/books', '/books/<int:id>')

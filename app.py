@@ -3,6 +3,7 @@ from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
 from models import User, Book, Review, ReadingList
+import logging
 
 class LoginResource(Resource):
     def post(self):
@@ -78,6 +79,9 @@ class BookResource(Resource):
     def post(self):
         try:
             data = request.get_json()
+            if not data.get('title') or not data.get('author'):
+                return {"error": "Title and author are required."}, 400
+
             new_book = Book(
                 title=data['title'],
                 author=data['author'],
@@ -90,9 +94,14 @@ class BookResource(Resource):
             db.session.add(new_book)
             db.session.commit()
             return new_book.to_dict(), 201
-        except IntegrityError:
+        except IntegrityError as e:
             db.session.rollback()
+            logging.error(f"Integrity error: {str(e)}")
             return {"error": "Failed to create book. Please check the data."}, 400
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Unexpected error: {str(e)}")
+            return {"error": "An unexpected error occurred. Please try again."}, 500
 api.add_resource(BookResource, '/books', '/books/<int:id>')
 
 # Review Resource

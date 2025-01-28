@@ -9,32 +9,34 @@ class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(60), unique=True,nullable=False)
+    username = db.Column(db.String(60), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
-    #relationship
-    reviews = db.relationship('Review', back_populates='user',lazy='dynamic')
+    # Relationship
+    reviews = db.relationship('Review', back_populates='user', lazy='dynamic')
     reading_lists = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
 
     # SerializerMixin Rules
-    serialize_rules =("-password_hash","-reviews.user","-reading_lists.user")
+    serialize_rules = ("-password_hash", "-reviews", "-reading_lists")
 
-    #validation and password handling]
+    # Validation and password handling
     @validates('username')
-    def validate_username(self,key,username):
+    def validate_username(self, key, username):
         if not username or len(username) < 3:
-            raise ValueError("Username must be atleast 3 characters long")
-        if username.isdigit(): #check if the username consists of only digits
+            raise ValueError("Username must be at least 3 characters long")
+        if username.isdigit():
             raise ValueError("Username cannot be just numbers.")
-        if not re.match("^[A-Za-z0-9_]+$", username): #restrict to alphanumeric + underscores
-            raise ValueError("Username can only contain letters,numbers and underscores")
+        if not re.match("^[A-Za-z0-9_]+$", username):
+            raise ValueError("Username can only contain letters, numbers, and underscores.")
         return username
+
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
 
-#book model
+
 class Book(db.Model, SerializerMixin):
     __tablename__ = 'books'
 
@@ -46,7 +48,7 @@ class Book(db.Model, SerializerMixin):
     page_count = db.Column(db.Integer)
     image_url = db.Column(db.String(255))
     publication_year = db.Column(db.Integer)
-    
+
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):
         if not value or len(value.strip()) == 0:
@@ -54,7 +56,7 @@ class Book(db.Model, SerializerMixin):
         if key == 'genre' and len(value) > 100:
             raise ValueError("Genre must be less than 100 characters.")
         return value
-    
+
     @validates('page_count', 'publication_year')
     def validate_numeric_fields(self, key, value):
         if key == 'page_count' and (not isinstance(value, int) or value <= 0):
@@ -63,19 +65,19 @@ class Book(db.Model, SerializerMixin):
             raise ValueError("Publication year must be a non-negative integer.")
         return value
 
-    #relationship
-    reviews=db.relationship('Review', back_populates='book',lazy='dynamic')
-    reading_list_books= db.relationship('ReadingListBook', back_populates='book')
+    # Relationship
+    reviews = db.relationship('Review', back_populates='book', lazy='dynamic')
+    reading_list_books = db.relationship('ReadingListBook', back_populates='book')
 
-    #SerializerMixin Rules
-    serialize_rules=("-reviews.book","-reading_list_books.book")
+    # SerializerMixin Rules
+    serialize_rules = ("-reviews", "-reading_list_books")
 
-#Reading List model
+
 class ReadingList(db.Model, SerializerMixin):
     __tablename__ = 'reading_lists'
 
-    id= db.Column(db.Integer, primary_key=True)
-    name=db.Column(db.String(80), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
     user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
@@ -88,14 +90,14 @@ class ReadingList(db.Model, SerializerMixin):
             raise ValueError("Reading list name must be less than 80 characters.")
         return name
 
-    #relationship
+    # Relationship
     user = db.relationship('User', back_populates='reading_lists')
     books = db.relationship('ReadingListBook', back_populates='reading_list', lazy='dynamic')
 
-    # Serializer rules
-    serialize_rules=("-user.reading_lists", "-books.reading_list")
+    # SerializerMixin Rules
+    serialize_rules = ("-user", "-books")
 
-#Reading List book model
+
 class ReadingListBook(db.Model, SerializerMixin):
     __tablename__ = 'reading_list_books'
 
@@ -110,20 +112,21 @@ class ReadingListBook(db.Model, SerializerMixin):
         if note and len(note) > 1000:
             raise ValueError("Note must be less than 1000 characters.")
         return note
+
     @validates('rating')
     def validate_rating(self, key, rating):
         if not isinstance(rating, int) or rating < 1 or rating > 5:
             raise ValueError("Rating must be an integer between 1 and 5.")
         return rating
 
-    #relationships
+    # Relationships
     reading_list = db.relationship('ReadingList', back_populates='books')
     book = db.relationship('Book', back_populates='reading_list_books')
 
-    # serializer Rules
-    serialize_rules = ("-reading_list.books", "-book.reading_list_books")
+    # SerializerMixin Rules
+    serialize_rules = ("-reading_list", "-book")
 
-#review Model
+
 class Review(db.Model, SerializerMixin):
     __tablename__ = 'reviews'
 
@@ -141,17 +144,16 @@ class Review(db.Model, SerializerMixin):
         if len(review_text) > 5000:
             raise ValueError("Review text must be less than 5000 characters.")
         return review_text
-    
+
     @validates('rating')
     def validate_rating(self, key, rating):
         if not isinstance(rating, int) or rating < 1 or rating > 5:
             raise ValueError("Rating must be an integer between 1 and 5.")
         return rating
 
-    #relationship
-    user = db.relationship('User',back_populates='reviews')
+    # Relationships
+    user = db.relationship('User', back_populates='reviews')
     book = db.relationship('Book', back_populates='reviews')
-    # serializer rules
-    serialize_rules = ("-user.reviews", "-book.reviews")
 
-
+    # SerializerMixin Rules
+    serialize_rules = ("-user", "-book")

@@ -127,6 +127,24 @@ class ReviewResource(Resource):
         except IntegrityError:
             db.session.rollback()
             return {"error": "Failed to create review. Please check the data."}, 400
+        
+    def put(self, id):
+        data = request.get_json()
+
+        review = Review.query.get(id)
+        if not review:
+            return {"error": "Review not found"}, 404
+
+        review.review_text = data.get('review_text', review.review_text)  
+        review.rating = data.get('rating', review.rating)  
+
+        try:
+            db.session.commit()
+            return jsonify(review.to_dict()), 200
+        except IntegrityError:
+            db.session.rollback()
+            return {"error": "Failed to update review. Please check the data."}, 400
+
 
 api.add_resource(ReviewResource, '/reviews', '/reviews/<int:id>')
 # Resource: ReadingList

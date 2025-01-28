@@ -46,6 +46,14 @@ class Book(db.Model, SerializerMixin):
     page_count = db.Column(db.Integer)
     image_url = db.Column(db.String(255))
     publication_year = db.Column(db.Integer)
+    
+    @validates('title', 'author', 'genre')
+    def validate_book_fields(self, key, value):
+        if not value or len(value.strip()) == 0:
+            raise ValueError(f"{key.capitalize()} cannot be empty.")
+        if key == 'genre' and len(value) > 100:
+            raise ValueError("Genre must be less than 100 characters.")
+        return value
 
     #relationship
     reviews=db.relationship('Review', back_populates='book',lazy='dynamic')

@@ -141,6 +141,12 @@ class Review(db.Model, SerializerMixin):
         if len(review_text) > 5000:
             raise ValueError("Review text must be less than 5000 characters.")
         return review_text
+    
+    @validates('rating')
+    def validate_rating(self, key, rating):
+        if not isinstance(rating, int) or rating < 1 or rating > 5:
+            raise ValueError("Rating must be an integer between 1 and 5.")
+        return rating
 
     #relationship
     user = db.relationship('User',back_populates='reviews')

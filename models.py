@@ -17,7 +17,7 @@ class User(db.Model, SerializerMixin):
     reading_lists = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
 
     # SerializerMixin Rules
-    serialize_rules =("-reviews.user","-reading_lists.user")
+    serialize_rules =("-password_hash","-reviews.user","-reading_lists.user")
 
     #validation and password handling]
     @validates('username')
@@ -51,6 +51,9 @@ class Book(db.Model, SerializerMixin):
     reviews=db.relationship('Review', back_populates='book',lazy='dynamic')
     reading_list_books= db.relationship('ReadingListBook', back_populates='book')
 
+    #SerializerMixin Rules
+    serialize_rules=("-reviews.book","-reading_list_books.book")
+
 #Reading List model
 class ReadingList(db.Model, SerializerMixin):
     __tablename__ = 'reading_lists'
@@ -65,6 +68,9 @@ class ReadingList(db.Model, SerializerMixin):
     user = db.relationship('User', back_populates='reading_lists')
     books = db.relationship('ReadingListBook', back_populates='reading_list', lazy='dynamic')
 
+    # Serializer rules
+    serialize_rules=("-user.reading_lists", "-books.reading_list")
+
 #Reading List book model
 class ReadingListBook(db.Model, SerializerMixin):
     __tablename__ = 'reading_list_books'
@@ -78,6 +84,10 @@ class ReadingListBook(db.Model, SerializerMixin):
     #relationships
     reading_list = db.relationship('ReadingList', back_populates='books')
     book = db.relationship('Book', back_populates='reading_list_books')
+
+    # serializer Rules
+    serialize_rules = ("-reading_list.books", "-book.reading_list_books")
+
 #review Model
 class Review(db.Model, SerializerMixin):
     __tablename__ = 'reviews'
@@ -92,5 +102,7 @@ class Review(db.Model, SerializerMixin):
     #relationship
     user = db.relationship('User',back_populates='reviews')
     book = db.relationship('Book', back_populates='reviews')
+    # serializer rules
+    serialize_rules = ("-user.reviews", "-book.reviews")
 
 

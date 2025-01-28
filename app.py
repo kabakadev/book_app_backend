@@ -1,8 +1,21 @@
-from flask import request,jsonify
+from flask import request,jsonify,session
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
 from models import User, Book, Review, ReadingList
+
+class LoginResource(Resource):
+    def post(self):
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            return {"message": "Login successful"}, 200
+        return {"error": "Invalid credentials"}, 401
+
 
 
 class UserInfo(Resource):

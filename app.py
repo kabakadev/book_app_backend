@@ -144,6 +144,19 @@ class ReviewResource(Resource):
         except IntegrityError:
             db.session.rollback()
             return {"error": "Failed to update review. Please check the data."}, 400
+    def delete(self, id):
+      
+        review = Review.query.get(id)
+        if not review:
+            return {"error": "Review not found"}, 404
+
+        try:
+            db.session.delete(review)
+            db.session.commit()
+            return {"message": "Review deleted successfully"}, 200
+        except IntegrityError:
+            db.session.rollback()
+            return {"error": "Failed to delete review."}, 400
 
 
 api.add_resource(ReviewResource, '/reviews', '/reviews/<int:id>')

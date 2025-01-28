@@ -54,6 +54,14 @@ class Book(db.Model, SerializerMixin):
         if key == 'genre' and len(value) > 100:
             raise ValueError("Genre must be less than 100 characters.")
         return value
+    
+    @validates('page_count', 'publication_year')
+    def validate_numeric_fields(self, key, value):
+        if key == 'page_count' and (not isinstance(value, int) or value <= 0):
+            raise ValueError("Page count must be a positive integer.")
+        if key == 'publication_year' and (not isinstance(value, int) or value < 0):
+            raise ValueError("Publication year must be a non-negative integer.")
+        return value
 
     #relationship
     reviews=db.relationship('Review', back_populates='book',lazy='dynamic')

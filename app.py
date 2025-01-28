@@ -102,14 +102,24 @@ class ReviewResource(Resource):
         reviews = Review.query.all()
         return jsonify([review.to_dict() for review in reviews])
 
+     # POST: Create a new review
     def post(self):
+        data = request.get_json()
+
+        user_id = data.get('user_id')
+        book_id = data.get('book_id')
+        review_text = data.get('review_text')
+        rating = data.get('rating')
+
+        if not user_id or not book_id or not review_text or not rating:
+            return {'error': 'User ID, Book ID, review text, and rating are required'}, 422
+
         try:
-            data = request.get_json()
             new_review = Review(
-                user_id=data['user_id'],
-                book_id=data['book_id'],
-                review_text=data['review_text'],
-                rating=data['rating'],
+                user_id=user_id,
+                book_id=book_id,
+                review_text=review_text,
+                rating=rating
             )
             db.session.add(new_review)
             db.session.commit()

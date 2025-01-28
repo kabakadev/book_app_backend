@@ -23,12 +23,12 @@ class LogoutResource(Resource):
 api.add_resource(LoginResource, '/login')
 api.add_resource(LogoutResource, '/logout')
 
-@app.before_request
-def check_protected_endpoints():
-    protected_endpoints =['/books','/reviews','/reading-lists']
+# @app.before_request
+# def check_protected_endpoints():
+#     protected_endpoints =['/books','/reviews','/reading-lists']
 
-    if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
-        return jsonify({"error": "unauthorized. please log in"}), 401
+#     if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
+#         return jsonify({"error": "unauthorized. please log in"}), 401
 
 @app.errorhandler(404)
 def handle_404_error(e):

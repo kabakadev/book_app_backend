@@ -105,6 +105,13 @@ class ReadingListBook(db.Model, SerializerMixin):
     note = db.Column(db.Text)
     rating = db.Column(db.Integer)
 
+    @validates('note')
+    def validate_note(self, key, note):
+        if note and len(note) > 1000:
+            raise ValueError("Note must be less than 1000 characters.")
+        return note
+    
+
     #relationships
     reading_list = db.relationship('ReadingList', back_populates='books')
     book = db.relationship('Book', back_populates='reading_list_books')

@@ -2,7 +2,7 @@ from flask import request,jsonify
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
-from models import User, Book, Review, ReadingList, ReadingListBook
+from models import User, Book, Review, ReadingList
 
 
 class UserInfo(Resource):
@@ -63,3 +63,32 @@ class BookResource(Resource):
             db.session.rollback()
             return {"error": "Failed to create book. Please check the data."}, 400
 api.add_resource(BookResource, '/books', '/books/<int:id>')
+
+# Review Resource
+class ReviewResource(Resource):
+    def get(self, id=None):
+        if id:
+            review = Review.query.get(id)
+            if review:
+                return jsonify(review.to_dict())
+            return {"error": "Review not found"}, 404
+        reviews = Review.query.all()
+        return jsonify([review.to_dict() for review in reviews])
+
+    def post(self):
+        try:
+            data = request.get_json()
+            new_review = Review(
+                user_id=data['user_id'],
+                book_id=data['book_id'],
+                review_text=data['review_text'],
+                rating=data['rating'],
+            )
+            db.session.add(new_review)
+            db.session.commit()
+            return jsonify(new_review.to_dict()), 201
+        except IntegrityError:
+            db.session.rollback()
+            return {"error": "Failed to create review. Please check the data."}, 400
+
+api.add_resource(ReviewResource, '/reviews', '/reviews/<int:id>')

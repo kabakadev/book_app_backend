@@ -123,7 +123,7 @@ class ReviewResource(Resource):
             )
             db.session.add(new_review)
             db.session.commit()
-            return jsonify(new_review.to_dict()), 201
+            return new_review.to_dict(), 201
         except IntegrityError:
             db.session.rollback()
             return {"error": "Failed to create review. Please check the data."}, 400
@@ -140,7 +140,7 @@ class ReviewResource(Resource):
 
         try:
             db.session.commit()
-            return jsonify(review.to_dict()), 200
+            return review.to_dict(), 200
         except IntegrityError:
             db.session.rollback()
             return {"error": "Failed to update review. Please check the data."}, 400

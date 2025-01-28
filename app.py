@@ -92,3 +92,91 @@ class ReviewResource(Resource):
             return {"error": "Failed to create review. Please check the data."}, 400
 
 api.add_resource(ReviewResource, '/reviews', '/reviews/<int:id>')
+# Resource: ReadingList
+class ReadingListResource(Resource):
+    def get(self, list_id=None):
+        if list_id:
+            reading_list = ReadingList.query.get(list_id)
+            if not reading_list:
+                return {'error': 'Reading list not found'}, 404
+            return reading_list.to_dict(rules=("books", "user")), 200
+
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return {'error': 'User ID is required'}, 400
+
+        reading_lists = ReadingList.query.filter_by(user_id=user_id).all()
+        return [rl.to_dict(rules=("books",)) for rl in reading_lists], 200
+
+    def post(self):
+        data = request.get_json()
+        name = data.get('name')
+        user_id = data.get('user_id')
+        book_ids = data.get('book_ids', [])
+
+        if not name or not user_id:
+            return {'error': 'Name and User ID are required'}, 400
+
+        try:
+            reading_list = ReadingList(name=name, user_id=user_id)
+            db.session.add(reading_list)
+
+            for book_id in book_ids:
+                book = Book.query.get(book_id)
+                if book:
+                    reading_list.books.append(book)
+
+            db.session.commit()
+            return reading_list.to_dict(rules=("books",)), 201
+        except IntegrityError:
+            db.session.rollback()
+            return {'error': 'Error creating reading list'}, 500
+
+    def put(self, list_id):
+        data = request.get_json()
+        reading_list = ReadingList.query.get(list_id)
+
+        if not reading_list:
+            return {'error': 'Reading list not found'}, 404
+
+        name = data.get('name')
+        book_ids = data.get('book_ids', [])
+
+        if name:
+            reading_list.name = name
+
+        reading_list.books = []  # Clear existing books
+        for book_id in book_ids:
+            book = Book.query.get(book_id)
+            if book:
+                reading_list.books.append(book)
+
+        try:
+            db.session.commit()
+            return reading_list.to_dict(rules=("books",)), 200
+        except IntegrityError:
+            db.session.rollback()
+            return {'error': 'Error updating reading list'}, 500
+
+    def delete(self, list_id):
+        reading_list = ReadingList.query.get(list_id)
+
+        if not reading_list:
+            return {'error': 'Reading list not found'}, 404
+
+        try:
+            db.session.delete(reading_list)
+            db.session.commit()
+            return {'message': 'Reading list deleted'}, 200
+        except IntegrityError:
+            db.session.rollback()
+            return {'error': 'Error deleting reading list'}, 500
+
+# Add the ReadingListResource to the API
+api.add_resource(
+    ReadingListResource,
+    '/reading-lists',
+    '/reading-lists/<int:list_id>'
+)
+if __name__ == "__main__":
+    app.run(debug=True)

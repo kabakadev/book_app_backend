@@ -27,9 +27,8 @@ api.add_resource(LogoutResource, '/logout')
 def check_protected_endpoints():
     protected_endpoints =['/books','/reviews','/reading-lists']
 
-    if request.path in protected_endpoints and not session.get('user_id'):
-        return jsonify({"error":"unaothirzed. please log in "}), 401
-
+    if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
+        return jsonify({"error": "unauthorized. please log in"}), 401
 
 
 class UserInfo(Resource):

@@ -13,8 +13,11 @@ class User(db.Model, SerializerMixin):
     password_hash = db.Column(db.String(255), nullable=False)
 
     #relationship
-    revews = db.relationship('Review', back_populates='user',lazy='dynamic')
+    reviews = db.relationship('Review', back_populates='user',lazy='dynamic')
     reading_lists = db.relationship('ReadingList', back_populates='user', lazy='dynamic')
+
+    # SerializerMixin Rules
+    serialize_rules =("-reviews.user","-reading_lists.user")
 
     #validation and password handling]
     @validates('username')
@@ -91,6 +94,3 @@ class Review(db.Model, SerializerMixin):
     book = db.relationship('Book', back_populates='reviews')
 
 
-
-
-    

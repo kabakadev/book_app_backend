@@ -134,6 +134,14 @@ class Review(db.Model, SerializerMixin):
     rating = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
+    @validates('review_text')
+    def validate_review_text(self, key, review_text):
+        if not review_text or len(review_text.strip()) == 0:
+            raise ValueError("Review text cannot be empty.")
+        if len(review_text) > 5000:
+            raise ValueError("Review text must be less than 5000 characters.")
+        return review_text
+
     #relationship
     user = db.relationship('User',back_populates='reviews')
     book = db.relationship('Book', back_populates='reviews')

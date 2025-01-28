@@ -17,6 +17,8 @@ class LoginResource(Resource):
         return {"error": "Invalid credentials"}, 401
 class LogoutResource(Resource):
     def post(self):
+        if 'user_id' not in session:
+            return{"error":"Not logged in"}, 400
         session.pop('user_id', None)
         return {"message":"Logged out successfully"}, 200
 

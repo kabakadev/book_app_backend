@@ -80,6 +80,14 @@ class ReadingList(db.Model, SerializerMixin):
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
     user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
 
+    @validates('name')
+    def validate_name(self, key, name):
+        if not name or len(name.strip()) == 0:
+            raise ValueError("Reading list name cannot be empty.")
+        if len(name) > 80:
+            raise ValueError("Reading list name must be less than 80 characters.")
+        return name
+
     #relationship
     user = db.relationship('User', back_populates='reading_lists')
     books = db.relationship('ReadingListBook', back_populates='reading_list', lazy='dynamic')

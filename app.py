@@ -15,6 +15,13 @@ class LoginResource(Resource):
             session['user_id'] = user.id
             return {"message": "Login successful"}, 200
         return {"error": "Invalid credentials"}, 401
+class LogoutResource(Resource):
+    def post(self):
+        session.pop('user_id', None)
+        return {"message":"Logged out successfully"}, 200
+
+api.add_resource(LoginResource, '/login')
+api.add_resource(LogoutResource, '/logout')
 
 
 

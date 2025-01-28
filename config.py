@@ -5,7 +5,11 @@ from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
 from dotenv import load_dotenv
+from flask_cors import CORS
+
+
 import os
+
 
 # Load environment variables from .env
 load_dotenv()
@@ -31,3 +35,6 @@ api = Api(app)
 
 # Attach SQLAlchemy to Flask
 db.init_app(app)
+
+#allow cross origin requests
+CORS(app)

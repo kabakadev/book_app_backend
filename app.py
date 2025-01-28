@@ -30,6 +30,9 @@ def check_protected_endpoints():
     if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
         return jsonify({"error": "unauthorized. please log in"}), 401
 
+@app.errorhandler(404)
+def handle_404_error(e):
+    return jsonify({"error":"The requested endpoint was not found, check the url for any typos"}),404
 
 class UserInfo(Resource):
     def get(self, id=None):

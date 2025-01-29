@@ -2,7 +2,7 @@ from flask import request,jsonify,session
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
-from models import User, Book, Review, ReadingList
+from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
 class LoginResource(Resource):
@@ -200,13 +200,15 @@ class ReadingListResource(Resource):
 
         try:
             reading_list = ReadingList(name=name, user_id=user_id)
-            db.session.add(reading_list)
+           
 
             for book_id in book_ids:
                 book = Book.query.get(book_id)
                 if book:
-                    reading_list.books.append(book)
-
+                    reading_list_book = ReadingListBook(book=book, reading_list=reading_list)
+                    db.session.add(reading_list_book)
+                    
+            db.session.add(reading_list)
             db.session.commit()
             return reading_list.to_dict(rules=("books",)), 201
         except IntegrityError:

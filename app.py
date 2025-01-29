@@ -205,9 +205,15 @@ class ReadingListResource(Resource):
         user = User.query.get(user_id)
         if not user:
             return {'error': 'User not found'}, 404
+        existing_reading_list = ReadingList.query.filter_by(user_id=user_id, name=name).first()
+        if existing_reading_list:
+            return {'error': 'A reading list with this name already exists for the user'}, 400
         books = Book.query.filter(Book.id.in_(book_ids)).all()
         if len(books) != len(book_ids):
             return {'error': 'One or more books not found'}, 404
+        if len(book_ids) != len(set(book_ids)):
+            return {'error': 'Duplicate books are not allowed in the reading list'}, 400
+
 
 
 
@@ -245,6 +251,9 @@ class ReadingListResource(Resource):
         books = Book.query.filter(Book.id.in_(book_ids)).all()
         if len(books) != len(book_ids):
             return {'error': 'One or more books not found'}, 404
+        if len(book_ids) != len(set(book_ids)):
+            return {'error': 'Duplicate books are not allowed in the reading list'}, 400
+
 
 
         ReadingListBook.query.filter_by(reading_list_id=reading_list.id).delete()

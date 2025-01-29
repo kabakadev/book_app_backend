@@ -11,7 +11,7 @@ class User(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(60), unique=True,nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    serialize_only = ("id","username")
+    serialize_only = ("id","username","reading_lists","reviews")
 
     #relationship
     reviews = db.relationship('Review', back_populates='user',lazy='dynamic')

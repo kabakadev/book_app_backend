@@ -126,6 +126,11 @@ class ReviewResource(Resource):
 
         if not user_id or not book_id or not review_text or not rating:
             return {'error': 'User ID, Book ID, review text, and rating are required'}, 422
+        # Check if the user has already reviewed this book
+        existing_review = Review.query.filter_by(user_id=user_id, book_id=book_id).first()
+        if existing_review:
+            return {"error": "You have already reviewed this book."}, 400
+
 
         try:
             new_review = Review(
@@ -197,6 +202,14 @@ class ReadingListResource(Resource):
 
         if not name or not user_id:
             return {'error': 'Name and User ID are required'}, 400
+        user = User.query.get(user_id)
+        if not user:
+            return {'error': 'User not found'}, 404
+        books = Book.query.filter(Book.id.in_(book_ids)).all()
+        if len(books) != len(book_ids):
+            return {'error': 'One or more books not found'}, 404
+
+
 
         try:
             reading_list = ReadingList(name=name, user_id=user_id)
@@ -207,13 +220,14 @@ class ReadingListResource(Resource):
                 if book:
                     reading_list_book = ReadingListBook(book=book, reading_list=reading_list)
                     db.session.add(reading_list_book)
-                    
+
             db.session.add(reading_list)
             db.session.commit()
             return reading_list.to_dict(rules=("books",)), 201
         except IntegrityError:
             db.session.rollback()
             return {'error': 'Error creating reading list'}, 500
+        
 
     def put(self, list_id):
         data = request.get_json()
@@ -227,12 +241,16 @@ class ReadingListResource(Resource):
 
         if name:
             reading_list.name = name
+    
+        books = Book.query.filter(Book.id.in_(book_ids)).all()
+        if len(books) != len(book_ids):
+            return {'error': 'One or more books not found'}, 404
 
-        reading_list.books = []  # Clear existing books
-        for book_id in book_ids:
-            book = Book.query.get(book_id)
-            if book:
-                reading_list.books.append(book)
+
+        ReadingListBook.query.filter_by(reading_list_id=reading_list.id).delete()
+        for book in books:
+            reading_list_book = ReadingListBook(book=book, reading_list=reading_list)
+            db.session.add(reading_list_book)
 
         try:
             db.session.commit()
@@ -248,6 +266,7 @@ class ReadingListResource(Resource):
             return {'error': 'Reading list not found'}, 404
 
         try:
+            ReadingListBook.query.filter_by(reading_list_id=reading_list.id).delete()
             db.session.delete(reading_list)
             db.session.commit()
             return {'message': 'Reading list deleted'}, 200

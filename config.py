@@ -37,4 +37,4 @@ api = Api(app)
 db.init_app(app)
 
 #allow cross origin requests
-CORS(app)
+CORS(app, supports_credentials=True)

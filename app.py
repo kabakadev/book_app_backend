@@ -5,6 +5,17 @@ from config import app, db, api
 from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
+@app.route('/check-auth', methods=['GET'])
+def check_auth():
+    print("Session data:", session)  # Debugging: Print session data
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user:
+            print(f"User authenticated: {user.id}")  # Debugging
+            return jsonify({"authenticated": True, "user": {"id": user.id, "username": user.username}})
+    print("User not authenticated")  # Debugging
+    return jsonify({"authenticated": False}), 401
+
 class LoginResource(Resource):
     def post(self):
         data = request.get_json()
@@ -14,7 +25,8 @@ class LoginResource(Resource):
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             session['user_id'] = user.id
-            return {"message": "Login successful"}, 200
+            print(f"Session set for user: {user.id}")  # Debugging
+            return {"message": "Login successful", "user": {"id": user.id, "username": user.username}}, 200
         return {"error": "Invalid credentials"}, 401
 class LogoutResource(Resource):
     def post(self):

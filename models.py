@@ -138,7 +138,7 @@ class Review(db.Model, SerializerMixin):
     review_text = db.Column(db.Text, nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
-    serialize_only = ("id","user_id","book_id","review_text","rating","created_at")
+    serialize_only = ("id","user_id","book_id","review_text","rating","created_at","book")
 
     @validates('review_text')
     def validate_review_text(self, key, review_text):

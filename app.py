@@ -16,6 +16,27 @@ def check_auth():
     print("User not authenticated")  # Debugging
     return jsonify({"authenticated": False}), 401
 
+class SignupResource(Resource):
+    def post(self):
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        if not username or not password:
+            return {'error': 'Username and password are required'}, 422
+
+        try:
+            new_user = User(username=username)
+            new_user.set_password(password)
+            db.session.add(new_user)
+            db.session.commit()
+            session['user_id'] = new_user.id  # Auto-login after signup
+            return {"message": "Signup successful", "user": {"id": new_user.id, "username": new_user.username}}, 201
+        except IntegrityError:
+            db.session.rollback()
+            return {"error": "Username must be unique."}, 400
+
+api.add_resource(SignupResource, '/signup')
+
 class LoginResource(Resource):
     def post(self):
         data = request.get_json()

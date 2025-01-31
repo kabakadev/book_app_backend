@@ -43,5 +43,6 @@ with app.app_context():
 
     db.session.add_all([review1, review2])
     db.session.commit()
+    
 
     print("Database operation was a success!!")

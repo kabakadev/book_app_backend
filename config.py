@@ -37,4 +37,9 @@ api = Api(app)
 db.init_app(app)
 
 #allow cross origin requests
-CORS(app, supports_credentials=True)
+CORS(
+    app, supports_credentials=True,
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+    origins=["http://localhost:3000","http://localhost:5173","http://localhost:5173/reading-list"],
+    allow_headers=["Content-Type", "Authorization"],
+        )

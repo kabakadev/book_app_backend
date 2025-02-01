@@ -5,6 +5,19 @@ from config import app, db, api
 from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
+@app.before_request
+def check_protected_endpoints():
+    protected_endpoints =['/books','/reading-lists']
+    logging.debug(f"Session Data: {session.get('user_id')}")
+
+    #allow preflight requests to pass
+    if request.method == 'OPTIONS':
+        return jsonify({"message":"Ok"}), 200
+
+    if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
+        return jsonify({"error": "unauthorized. please log in"}), 401
+
+
 @app.route('/check-auth', methods=['GET'])
 def check_auth():
     print("Session data:", session)  # Debugging: Print session data
@@ -60,17 +73,6 @@ class LogoutResource(Resource):
 api.add_resource(LoginResource, '/login')
 api.add_resource(LogoutResource, '/logout')
 
-@app.before_request
-def check_protected_endpoints():
-    protected_endpoints =['/books','/reviews','/reading-lists']
-    logging.debug(f"Session Data: {session.get('user_id')}")
-
-    #allow preflight requests to pass
-    if request.method == 'OPTIONS':
-        return jsonify({"message":"Ok"}), 200
-
-    if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
-        return jsonify({"error": "unauthorized. please log in"}), 401
 
 @app.errorhandler(404)
 def handle_404_error(e):
@@ -145,16 +147,6 @@ api.add_resource(BookResource, '/books', '/books/<int:id>')
 
 # Review Resource
 class ReviewResource(Resource):
-    def options(self, list_id=None):
-        """
-        Handle preflight (OPTIONS) requests for CORS.
-        """
-        response = jsonify({"message": "Preflight request handled"})
-        response.headers.add("Access-Control-Allow-Origin", "http://localhost:3000")
-        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.add("Access-Control-Allow-Credentials", "true")
-        return response
     def get(self, id=None):
         if id:
             review = Review.query.get(id)

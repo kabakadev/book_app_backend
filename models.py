@@ -47,7 +47,7 @@ class Book(db.Model, SerializerMixin):
     page_count = db.Column(db.Integer)
     image_url = db.Column(db.String(255))
     publication_year = db.Column(db.Integer)
-    serialize_only = ("id","title","author","genre","description","page_count","image_url","publication_year")
+    serialize_only = ("id","title","author","genre","description","page_count","image_url","publication_year","reviews","reading_list_books")
     
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):

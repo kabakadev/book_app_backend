@@ -19,6 +19,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Ensures cookie can't be accessed by JavaScript
+app.config['SESSION_COOKIE_SECURE'] = True  # Ensures cookie is only sent over HTTPS
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Prevents cookies from being sent with cross-site requests
+
 # Set JSON output formatting
 app.json.compact = False
 

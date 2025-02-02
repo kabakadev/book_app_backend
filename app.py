@@ -187,7 +187,7 @@ class ReviewResource(Resource):
             db.session.rollback()
             return {"error": "Failed to create review. Please check the data."}, 400
         
-    def patch(self, id):
+    def put(self, id):
         data = request.get_json()
 
         review = Review.query.get(id)
@@ -277,7 +277,7 @@ class ReadingListResource(Resource):
             return {'error': 'Error creating reading list'}, 500
         
 
-    def patch(self, list_id):
+    def put(self, list_id):
         data = request.get_json()
         reading_list = ReadingList.query.get(list_id)
 

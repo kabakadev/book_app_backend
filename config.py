@@ -40,6 +40,6 @@ db.init_app(app)
 CORS(
     app, supports_credentials=True,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
-    origins=["http://localhost:3000","http://localhost:5173","http://localhost:5173/reading-list"],
+    origins=["https://booknook254.netlify.app/"],
     allow_headers=["Content-Type", "Authorization"],
         )

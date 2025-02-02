@@ -29,6 +29,11 @@ def check_auth():
     print("User not authenticated")  # Debugging
     return jsonify({"authenticated": False}), 401
 
+class HomeResource(Resource):
+    def get(self):
+        return jsonify({"message": "Welcome to the Book App API!"})
+api.add_resource(HomeResource, "/")
+
 
 class SignupResource(Resource):
     def post(self):

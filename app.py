@@ -5,17 +5,17 @@ from config import app, db, api
 from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
-# @app.before_request
-# def check_protected_endpoints():
-#     protected_endpoints =['/books','/reading-lists']
-#     logging.debug(f"Session Data: {session.get('user_id')}")
+@app.before_request
+def check_protected_endpoints():
+    protected_endpoints =['/books','/reading-lists']
+    logging.debug(f"Session Data: {session.get('user_id')}")
 
-#     #allow preflight requests to pass
-#     if request.method == 'OPTIONS':
-#         return jsonify({"message":"Ok"}), 200
+    #allow preflight requests to pass
+    if request.method == 'OPTIONS':
+        return jsonify({"message":"Ok"}), 200
 
-#     if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
-#         return jsonify({"error": "unauthorized. please log in"}), 401
+    if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
+        return jsonify({"error": "unauthorized. please log in"}), 401
 
 
 @app.route('/check-auth', methods=['GET'])

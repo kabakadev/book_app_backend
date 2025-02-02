@@ -47,7 +47,7 @@ class SignupResource(Resource):
             return {"message": "Signup successful", "user": {"id": new_user.id, "username": new_user.username}}, 201
         except IntegrityError:
             db.session.rollback()
-            return {"error": "Username must be unique."}, 400
+            return {"error": "Username already taken, try another one."}, 400
 
 api.add_resource(SignupResource, '/signup')
 

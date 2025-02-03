@@ -18,18 +18,24 @@ Before using this repository, you should be familiar with:
 
 1## Setup and Installation
 
-1. Clone the repository and cd:
-   bash
-   git clone https://github.com/kabakadev/book_app_backend.git
-   cd book_app_backend
-2. Create and activate a virtual environment:
+1. Clone the repository,
    ```sh
-   python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+     git clone https://github.com/kabakadev/book_app_backend.git
    ```
+   and cd:
+   ```sh
+    cd book_app_backend
+   ```
+2. Create and activate a virtual environment:
+
+   ```sh
+   pipenv shell
+
+   ```
+
 3. Install dependencies:
    ```sh
-   pip install -r requirements.txt
+   pipenv install -r requirements.txt
    ```
 4. Set up the database:
    ```sh
@@ -39,7 +45,7 @@ Before using this repository, you should be familiar with:
    ```
 5. Run the application:
    ```sh
-   flask run
+   python app.py
    ```
 
 ## API Endpoints

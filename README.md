@@ -249,7 +249,6 @@ The following endpoints require authentication:
 
 ## License
 
-T## License
 MIT License
 
 Copyright (c) 2023 Ian Kabaka

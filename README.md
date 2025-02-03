@@ -16,7 +16,7 @@ Before using this repository, you should be familiar with:
 
 ## Installation
 
-1## Setup and Installation
+### Setup and Installation
 
 1. Clone the repository,
    ```sh

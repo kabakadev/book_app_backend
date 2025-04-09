@@ -5,6 +5,14 @@ from config import app, db, api
 from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
+@app.route('/init-db')
+def init_db():
+    try:
+        db.create_all()
+        return jsonify({"message": "Database tables created successfully!"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.before_request
 def check_protected_endpoints():
     protected_endpoints =['/books','/reading-lists']

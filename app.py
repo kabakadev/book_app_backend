@@ -5,6 +5,10 @@ from config import app, db, api
 from models import User, Book, Review, ReadingList,ReadingListBook
 import logging
 
+@app.route('/health')
+def health_check():
+    return jsonify({"status":"ok"}),200
+
 @app.route('/init-db')
 def init_db():
     try:

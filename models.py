@@ -85,6 +85,7 @@ class Book(db.Model, SerializerMixin):
                 COALESCE(content_preview, '')
             )
         """))  # Added closing parenthesis here
+        db.session.commit()
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):
         if not value or len(value.strip()) == 0:

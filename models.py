@@ -58,7 +58,6 @@ class Book(db.Model, SerializerMixin):
     file_size = db.Column(db.Integer)  # Size in bytes
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     content_preview = db.Column(db.Text)  # First few pages of content for search
-    search_vector = db.Column(db.Text)  # For PostgreSQL full-text search
     serialize_only = ("id","title","author","genre","description","page_count","image_url","publication_year","reviews","reading_list_books", "pdf_url", "is_pdf")
 
     
@@ -85,8 +84,9 @@ class Book(db.Model, SerializerMixin):
                 COALESCE(author, '') || ' ' || 
                 COALESCE(description, '') || ' ' || 
                 COALESCE(content_preview, '')
-        """))
-        db.session.commit()
+            )
+        """))  # Added closing parenthesis here
+    db.session.commit()
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):
         if not value or len(value.strip()) == 0:

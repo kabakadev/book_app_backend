@@ -2,9 +2,271 @@ from flask import request,jsonify,session
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
-from models import User, Book, Review, ReadingList,ReadingListBook
+from models import User, Book, Review, ReadingList,ReadingListBook,ReadingProgress,ContentReport
 import logging
+import cloudinary
+import cloudinary.uploader
+from dotenv import load_dotenv
+import os
 
+# Flask endpoint to extract metadata
+from PyPDF2 import PdfReader
+from sqlalchemy import func
+
+
+
+@app.route('/search')
+def search():
+    query = request.args.get('q')
+    results = Book.query.filter(
+        func.to_tsvector('english', Book.title + ' ' + Book.author + ' ' + Book.description)
+        .match(func.to_tsquery('english', query))
+    ).all()
+    return jsonify([book.to_dict() for book in results])
+cloudinary.config( 
+    cloud_name=os.getenv('CLOUD_NAME'),
+    api_key=os.getenv('CLOUD_API_KEY'),
+    api_secret=os.getenv('CLOUD_API_SECRET'),
+    secure=True
+)
+
+from PyPDF2 import PdfReader
+from datetime import datetime
+
+@app.route('/upload-pdf', methods=['POST'])
+def upload_pdf():
+    if 'pdf' not in request.files:
+        return jsonify({"error": "No PDF file uploaded"}), 400
+    
+    file = request.files['pdf']
+    # Check file size (limit to 10MB)
+    if len(file.read()) > 10 * 1024 * 1024:  # 10MB in bytes
+        return jsonify({"error": "File size exceeds 10MB limit"}), 400
+    #reset file pointer after reading
+    file.seek(0)
+    
+   # Step 1: Upload PDF to Cloudinary
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file,
+            resource_type="raw",
+            folder="pdf_books"  # Optional: Organize PDFs in Cloudinary
+        )
+        pdf_url = upload_result["secure_url"]
+        file_size = upload_result.get("bytes", 0)
+    except Exception as e:
+        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+    
+    # Reset file pointer for metadata extraction
+    file.seek(0)
+    
+    # Step 2: Extract Metadata and content preview
+    try:
+        metadata = extract_pdf_metadata(file)
+
+        #extract content preview for search (first few pages)
+        file.seek(0)
+        content_preview = extract_content_preview(file)
+    except Exception as e:
+        return jsonify({"error": f"Metadata extraction failed: {str(e)}"}), 500
+
+ # Step 3: Save to Database
+    try:
+        book = Book(
+            title=metadata["title"],
+            author=metadata["author"],
+            page_count=metadata["page_count"],
+            pdf_url=pdf_url,
+            is_pdf=True,
+            file_size=file_size,
+            content_preview=content_preview,
+            upload_date=datetime.utcnow(),
+            # Optional: Set other fields (genre, description, etc.)
+        )
+        db.session.add(book)
+        db.session.commit()
+        
+        # Update search vector
+        Book.update_search_vector()
+        
+        return jsonify(book.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+def extract_pdf_metadata(pdf_file):
+    pdf = PdfReader(pdf_file)
+    
+    # Extract title and author with fallbacks
+    title = pdf.metadata.get("/Title", "")
+    if not title:
+        # Use filename as fallback
+        title = pdf_file.filename.replace(".pdf", "")
+    
+    author = pdf.metadata.get("/Author", "Unknown")
+    
+    return {
+        "title": title,
+        "author": author,
+        "page_count": len(pdf.pages)
+    }
+def extract_content_preview(pdf_file, max_pages=5, max_chars=10000):
+    """Extract text from the first few pages for search indexing"""
+    pdf = PdfReader(pdf_file)
+    content = []
+    
+    # Extract text from first few pages
+    for i in range(min(max_pages, len(pdf.pages))):
+        page = pdf.pages[i]
+        content.append(page.extract_text())
+        
+        # Check if we've extracted enough text
+        if sum(len(text) for text in content) >= max_chars:
+            break
+    
+    return " ".join(content)[:max_chars]
+
+# Replace both search_pdfs functions with this one
+
+@app.route('/search-pdfs')
+def search_pdfs():
+    query = request.args.get('q')
+    if not query:
+        return jsonify([])
+    
+    # Use PostgreSQL's full-text search capabilities
+    results = Book.query.filter(
+        func.to_tsvector('english', 
+            Book.title + ' ' + 
+            Book.author + ' ' + 
+            func.coalesce(Book.description, '') + ' ' + 
+            func.coalesce(Book.content_preview, '')
+        ).match(func.to_tsquery('english', query))
+    ).all()
+    
+    return jsonify([book.to_dict() for book in results])
+
+# Endpoint to track reading progress
+@app.route('/reading-progress', methods=['POST'])
+def update_reading_progress():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    
+    user_id = session['user_id']
+    data = request.json
+    
+    if not data or 'book_id' not in data or 'page' not in data or 'percentage' not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        # Check if progress record exists
+        progress = ReadingProgress.query.filter_by(
+            user_id=user_id,
+            book_id=data['book_id']
+        ).first()
+        
+        if progress:
+            progress.current_page = data['page']
+            progress.percentage = data['percentage']
+            progress.last_read = datetime.utcnow()
+        else:
+            progress = ReadingProgress(
+                user_id=user_id,
+                book_id=data['book_id'],
+                current_page=data['page'],
+                percentage=data['percentage'],
+                last_read=datetime.utcnow()
+            )
+            db.session.add(progress)
+        
+        db.session.commit()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to update reading progress: {str(e)}"}), 500
+
+
+# Endpoint to report unauthorized content
+# Endpoint to report unauthorized content
+@app.route('/report-content', methods=['POST'])
+def report_content():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    
+    user_id = session['user_id']
+    data = request.json
+    
+    if not data or 'book_id' not in data or 'reason' not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        report = ContentReport(
+            user_id=user_id,
+            book_id=data['book_id'],
+            reason=data['reason'],
+            details=data.get('details', ''),
+            report_date=datetime.utcnow()
+        )
+        db.session.add(report)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Report submitted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to submit report: {str(e)}"}), 500
+
+# Add a new endpoint to get reading progress for a book
+@app.route('/reading-progress/<int:book_id>', methods=['GET'])
+def get_reading_progress(book_id):
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        progress = ReadingProgress.query.filter_by(
+            user_id=user_id,
+            book_id=book_id
+        ).first()
+        
+        if progress:
+            return jsonify({
+                "current_page": progress.current_page,
+                "percentage": progress.percentage,
+                "last_read": progress.last_read.isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "current_page": 1,
+                "percentage": 0,
+                "last_read": None
+            }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to get reading progress: {str(e)}"}), 500
+
+# Add an endpoint to get bookmarks for a book
+@app.route('/bookmarks/<int:book_id>', methods=['GET', 'POST', 'DELETE'])
+def manage_bookmarks(book_id):
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    
+    user_id = session['user_id']
+    
+    # GET: Retrieve bookmarks
+    if request.method == 'GET':
+        try:
+            # This would require a Bookmark model, which we'll need to add
+            # For now, we'll use localStorage in the frontend
+            return jsonify({"message": "Bookmark functionality will be implemented soon"}), 200
+        except Exception as e:
+            return jsonify({"error": f"Failed to get bookmarks: {str(e)}"}), 500
+    
+    # Other methods would be implemented similarly
+    return jsonify({"message": "Endpoint not fully implemented yet"}), 501
 @app.route('/health')
 def health_check():
     return jsonify({"status":"ok"}),200

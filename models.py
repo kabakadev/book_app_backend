@@ -4,6 +4,10 @@ from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import ForeignKey
 import re
 from config import db, bcrypt
+from sqlalchemy import Text, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import func, Column, Integer, String, Boolean, Text, DateTime
+from datetime import datetime
 
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
@@ -47,8 +51,42 @@ class Book(db.Model, SerializerMixin):
     page_count = db.Column(db.Integer)
     image_url = db.Column(db.String(255))
     publication_year = db.Column(db.Integer)
-    serialize_only = ("id","title","author","genre","description","page_count","image_url","publication_year","reviews","reading_list_books")
+    search_vector = db.Column(TSVECTOR)  # Add this line
+    pdf_url = db.Column(db.String(255))  # Cloudinary PDF URL
+    is_pdf = db.Column(db.Boolean, default=False)  # Distinguish PDFs from regular books
+    search_vector = db.Column(TSVECTOR)  # For full-text search (from previous step)
+    file_size = db.Column(db.Integer)  # Size in bytes
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    content_preview = db.Column(db.Text)  # First few pages of content for search
+    search_vector = db.Column(db.Text)  # For PostgreSQL full-text search
+    serialize_only = ("id","title","author","genre","description","page_count","image_url","publication_year","reviews","reading_list_books", "pdf_url", "is_pdf")
+
     
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'author': self.author,
+            'description': self.description,
+            'cover_url': self.image_url,
+            'pdf_url': self.pdf_url,
+            'is_pdf': self.is_pdf,
+            'page_count': self.page_count,
+            'file_size': self.file_size,
+            'upload_date': self.upload_date.isoformat() if self.upload_date else None
+        }
+    # Add this method to update search_vector
+    @classmethod
+    def update_search_vector(cls):
+        db.session.execute(text("""
+            UPDATE books
+            SET search_vector = to_tsvector('english', 
+                COALESCE(title, '') || ' ' || 
+                COALESCE(author, '') || ' ' || 
+                COALESCE(description, '') || ' ' || 
+                COALESCE(content_preview, '')
+        """))
+        db.session.commit()
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):
         if not value or len(value.strip()) == 0:
@@ -159,3 +197,69 @@ class Review(db.Model, SerializerMixin):
     book = db.relationship('Book', back_populates='reviews')
     # serializer rules
     serialize_rules = ("-user.reviews", "-book.reviews")
+    # Add these models to your models.py file
+
+class ReadingProgress(db.Model, SerializerMixin):
+    __tablename__ = 'reading_progress'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
+    book_id = db.Column(db.Integer, ForeignKey('books.id'), nullable=False)
+    current_page = db.Column(db.Integer, default=1)
+    percentage = db.Column(db.Integer, default=0)  # 0-100
+    last_read = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('reading_progress', lazy='dynamic'))
+    book = db.relationship('Book', backref=db.backref('reading_progress', lazy='dynamic'))
+    
+    # SerializerMixin rules
+    serialize_only = ("id", "user_id", "book_id", "current_page", "percentage", "last_read")
+    serialize_rules = ("-user.reading_progress", "-book.reading_progress")
+    
+    @validates('current_page')
+    def validate_current_page(self, key, page):
+        if not isinstance(page, int) or page < 1:
+            raise ValueError("Current page must be a positive integer")
+        return page
+    
+    @validates('percentage')
+    def validate_percentage(self, key, percentage):
+        if not isinstance(percentage, int) or percentage < 0 or percentage > 100:
+            raise ValueError("Percentage must be an integer between 0 and 100")
+        return percentage
+
+
+class ContentReport(db.Model, SerializerMixin):
+    __tablename__ = 'content_reports'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False)
+    book_id = db.Column(db.Integer, ForeignKey('books.id'), nullable=False)
+    reason = db.Column(db.String(100), nullable=False)
+    details = db.Column(db.Text)
+    report_date = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='pending')  # pending, reviewed, resolved
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('content_reports', lazy='dynamic'))
+    book = db.relationship('Book', backref=db.backref('content_reports', lazy='dynamic'))
+    
+    # SerializerMixin rules
+    serialize_only = ("id", "user_id", "book_id", "reason", "details", "report_date", "status")
+    serialize_rules = ("-user.content_reports", "-book.content_reports")
+    
+    @validates('reason')
+    def validate_reason(self, key, reason):
+        if not reason or len(reason.strip()) == 0:
+            raise ValueError("Reason cannot be empty")
+        if len(reason) > 100:
+            raise ValueError("Reason must be less than 100 characters")
+        return reason
+    
+    @validates('status')
+    def validate_status(self, key, status):
+        valid_statuses = ['pending', 'reviewed', 'resolved']
+        if status not in valid_statuses:
+            raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
+        return status

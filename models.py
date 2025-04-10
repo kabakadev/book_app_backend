@@ -54,7 +54,6 @@ class Book(db.Model, SerializerMixin):
     search_vector = db.Column(TSVECTOR)  # Add this line
     pdf_url = db.Column(db.String(255))  # Cloudinary PDF URL
     is_pdf = db.Column(db.Boolean, default=False)  # Distinguish PDFs from regular books
-    search_vector = db.Column(TSVECTOR)  # For full-text search (from previous step)
     file_size = db.Column(db.Integer)  # Size in bytes
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     content_preview = db.Column(db.Text)  # First few pages of content for search
@@ -86,7 +85,6 @@ class Book(db.Model, SerializerMixin):
                 COALESCE(content_preview, '')
             )
         """))  # Added closing parenthesis here
-    db.session.commit()
     @validates('title', 'author', 'genre')
     def validate_book_fields(self, key, value):
         if not value or len(value.strip()) == 0:

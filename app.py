@@ -50,7 +50,8 @@ def upload_pdf():
         upload_result = cloudinary.uploader.upload(
             file,
             resource_type="raw",
-            folder="pdf_books"  # Optional: Organize PDFs in Cloudinary
+            folder="pdf_books",  # Optional: Organize PDFs in Cloudinary
+            format="pdf"
         )
         pdf_url = upload_result["secure_url"]
         file_size = upload_result.get("bytes", 0)

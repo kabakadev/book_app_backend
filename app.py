@@ -29,47 +29,86 @@ def check_auth():
     if 'user_id' not in session:
         return False
     return True
+
 # PDF proxy endpoint with improved authentication handling
 @app.route('/pdf-proxy/<int:book_id>', methods=['GET'])
 def pdf_proxy(book_id):
     """Proxy PDF content from Cloudinary through the backend"""
     # Check if user is logged in using session
     if 'user_id' not in session:
-        print(f"PDF Proxy: Authentication failed - no user_id in session")
+        print(f"PDF Proxy: Unauthorized access attempt for book {book_id}")
         return jsonify({"error": "Unauthorized. Please log in."}), 401
         
-    user_id = session.get('user_id')
+    user_id = session['user_id']
     print(f"PDF Proxy: User {user_id} requesting PDF for book {book_id}")
     
     book = Book.query.get(book_id)
     
     if not book or not book.pdf_url:
-        print(f"PDF Proxy: Book {book_id} not found or has no PDF URL")
+        print(f"PDF Proxy: Book {book_id} not found or has no PDF")
         return jsonify({"error": "PDF not found"}), 404
         
     try:
-        print(f"PDF Proxy: Fetching PDF from {book.pdf_url}")
         # Fetch the PDF from Cloudinary
+        print(f"PDF Proxy: Fetching PDF from {book.pdf_url}")
+        
+        # Add Cloudinary authentication if needed
+        cloudinary_auth = {
+            'api_key': os.getenv('CLOUD_API_KEY'),
+            'api_secret': os.getenv('CLOUD_API_SECRET')
+        }
+        
+        # First try without authentication (if PDF is public)
         response = requests.get(book.pdf_url, stream=True)
+        
+        # If unauthorized, try with authentication
+        if response.status_code == 401:
+            print("PDF Proxy: Cloudinary returned error 401, trying with authentication")
+            
+            # Extract the public_id from the URL
+            # Example URL: https://res.cloudinary.com/dhml0o3an/raw/upload/v1744596387/pdf_books/pdf_m0xezv.pdf
+            url_parts = book.pdf_url.split('/')
+            if len(url_parts) >= 7:
+                version_idx = -3  # Index of the version part (v1744596387)
+                folder_idx = -2   # Index of the folder part (pdf_books)
+                file_idx = -1     # Index of the file part (pdf_m0xezv.pdf)
+                
+                version = url_parts[version_idx].replace('v', '')
+                folder = url_parts[folder_idx]
+                filename = url_parts[file_idx]
+                
+                public_id = f"{folder}/{filename.split('.')[0]}"
+                
+                # Generate a signed URL
+                timestamp = int(datetime.utcnow().timestamp())
+                signature_data = f"public_id={public_id}&timestamp={timestamp}{cloudinary_auth['api_secret']}"
+                import hashlib
+                signature = hashlib.sha1(signature_data.encode()).hexdigest()
+                
+                # Construct a signed URL
+                signed_url = f"{book.pdf_url}?api_key={cloudinary_auth['api_key']}&timestamp={timestamp}&signature={signature}"
+                
+                print(f"PDF Proxy: Trying with signed URL")
+                response = requests.get(signed_url, stream=True)
+            else:
+                print("PDF Proxy: Could not parse Cloudinary URL for authentication")
         
         if not response.ok:
             print(f"PDF Proxy: Cloudinary returned error {response.status_code}")
             return jsonify({"error": f"Failed to fetch PDF: {response.status_code}"}), 500
             
         # Return the PDF content
-        print(f"PDF Proxy: Successfully fetched PDF, returning to client")
         return Response(
             response.iter_content(chunk_size=1024),
             content_type=response.headers.get('Content-Type', 'application/pdf'),
             headers={
-                'Content-Disposition': f'inline; filename="{book.title}.pdf"',
-                'Access-Control-Allow-Origin': '*',  # Allow CORS for PDF.js
-                'Access-Control-Allow-Credentials': 'true'  # Allow credentials
+                'Content-Disposition': f'inline; filename="{book.title}.pdf"'
             }
         )
     except Exception as e:
-        print(f"PDF Proxy: Exception occurred: {str(e)}")
+        print(f"PDF Proxy: Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/search')
 def search():
@@ -83,7 +122,7 @@ def search():
 @app.route('/upload-pdf', methods=['POST'])
 def upload_pdf():
     # Check if user is logged in
-    if not check_auth():
+    if 'user_id' not in session:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
         
     if 'pdf' not in request.files:
@@ -96,22 +135,27 @@ def upload_pdf():
     #reset file pointer after reading
     file.seek(0)
     
-    # Step 1: Upload PDF to Cloudinary
+    # Step 1: Upload PDF to Cloudinary with public access
     try:
+        print("Uploading PDF to Cloudinary with public access...")
         upload_result = cloudinary.uploader.upload(
             file,
             resource_type="raw",
-            folder="pdf_books",  # Optional: Organize PDFs in Cloudinary
+            folder="pdf_books",
             format="pdf",
             type="upload",
             access_mode="public",  # Make sure it's public
-            use_filename=True,
-            unique_filename=True
+            public_id=f"pdf_{int(datetime.utcnow().timestamp())}",  # Unique ID based on timestamp
         )
         pdf_url = upload_result["secure_url"]
         file_size = upload_result.get("bytes", 0)
+        print(f"PDF uploaded successfully. URL: {pdf_url}")
     except Exception as e:
+        print(f"Cloudinary upload error: {str(e)}")
         return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+    
+
+
     
     # Reset file pointer for metadata extraction
     file.seek(0)

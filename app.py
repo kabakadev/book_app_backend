@@ -518,6 +518,19 @@ class BookResource(Resource):
             db.session.rollback()
             logging.error(f"Unexpected error: {str(e)}")
             return {"error": "An unexpected error occurred. Please try again."}, 500
+    def delete(self,id):
+        book = Book.query.get(id)
+        if not book:
+            return {"error":"Book not found"}
+        try:
+            ReadingListBook.query.filter_by(book_id=id).delete()
+            Review.query.filter_by(book_id=id).delete()
+            db.session.delete(book)
+            db.session.commit()
+            return {"message":"Book deleted succesfully"},200
+        except Exception as e:
+            db.session.rollback()
+            return {"error":f"Failed to delete book: {str(e)}"},500
 api.add_resource(BookResource, '/books', '/books/<int:id>')
 
 # Review Resource

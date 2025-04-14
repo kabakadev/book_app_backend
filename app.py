@@ -29,36 +29,46 @@ def check_auth():
     if 'user_id' not in session:
         return False
     return True
-
-# PDF proxy endpoint
+# PDF proxy endpoint with improved authentication handling
 @app.route('/pdf-proxy/<int:book_id>', methods=['GET'])
 def pdf_proxy(book_id):
     """Proxy PDF content from Cloudinary through the backend"""
     # Check if user is logged in using session
-    if not check_auth():
+    if 'user_id' not in session:
+        print(f"PDF Proxy: Authentication failed - no user_id in session")
         return jsonify({"error": "Unauthorized. Please log in."}), 401
         
+    user_id = session.get('user_id')
+    print(f"PDF Proxy: User {user_id} requesting PDF for book {book_id}")
+    
     book = Book.query.get(book_id)
     
     if not book or not book.pdf_url:
+        print(f"PDF Proxy: Book {book_id} not found or has no PDF URL")
         return jsonify({"error": "PDF not found"}), 404
         
     try:
+        print(f"PDF Proxy: Fetching PDF from {book.pdf_url}")
         # Fetch the PDF from Cloudinary
         response = requests.get(book.pdf_url, stream=True)
         
         if not response.ok:
+            print(f"PDF Proxy: Cloudinary returned error {response.status_code}")
             return jsonify({"error": f"Failed to fetch PDF: {response.status_code}"}), 500
             
         # Return the PDF content
+        print(f"PDF Proxy: Successfully fetched PDF, returning to client")
         return Response(
             response.iter_content(chunk_size=1024),
             content_type=response.headers.get('Content-Type', 'application/pdf'),
             headers={
-                'Content-Disposition': f'inline; filename="{book.title}.pdf"'
+                'Content-Disposition': f'inline; filename="{book.title}.pdf"',
+                'Access-Control-Allow-Origin': '*',  # Allow CORS for PDF.js
+                'Access-Control-Allow-Credentials': 'true'  # Allow credentials
             }
         )
     except Exception as e:
+        print(f"PDF Proxy: Exception occurred: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/search')

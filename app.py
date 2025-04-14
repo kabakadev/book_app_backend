@@ -1,19 +1,65 @@
-from flask import request,jsonify,session
+from flask import request, jsonify, session, send_file, Response
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 from config import app, db, api
-from models import User, Book, Review, ReadingList,ReadingListBook,ReadingProgress,ContentReport
+from models import User, Book, Review, ReadingList, ReadingListBook, ReadingProgress, ContentReport
 import logging
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
 import os
-
-# Flask endpoint to extract metadata
+import requests
+from io import BytesIO
 from PyPDF2 import PdfReader
-from sqlalchemy import func
+from sqlalchemy import func, text
+from datetime import datetime
+from werkzeug.utils import secure_filename
+import tempfile
 
+# Configure Cloudinary
+cloudinary.config( 
+    cloud_name=os.getenv('CLOUD_NAME'),
+    api_key=os.getenv('CLOUD_API_KEY'),
+    api_secret=os.getenv('CLOUD_API_SECRET'),
+    secure=True
+)
 
+# Session-based authentication check function
+def check_auth():
+    if 'user_id' not in session:
+        return False
+    return True
+
+# PDF proxy endpoint
+@app.route('/pdf-proxy/<int:book_id>', methods=['GET'])
+def pdf_proxy(book_id):
+    """Proxy PDF content from Cloudinary through the backend"""
+    # Check if user is logged in using session
+    if not check_auth():
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+        
+    book = Book.query.get(book_id)
+    
+    if not book or not book.pdf_url:
+        return jsonify({"error": "PDF not found"}), 404
+        
+    try:
+        # Fetch the PDF from Cloudinary
+        response = requests.get(book.pdf_url, stream=True)
+        
+        if not response.ok:
+            return jsonify({"error": f"Failed to fetch PDF: {response.status_code}"}), 500
+            
+        # Return the PDF content
+        return Response(
+            response.iter_content(chunk_size=1024),
+            content_type=response.headers.get('Content-Type', 'application/pdf'),
+            headers={
+                'Content-Disposition': f'inline; filename="{book.title}.pdf"'
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/search')
 def search():
@@ -23,18 +69,13 @@ def search():
         .match(func.to_tsquery('english', query))
     ).all()
     return jsonify([book.to_dict() for book in results])
-cloudinary.config( 
-    cloud_name=os.getenv('CLOUD_NAME'),
-    api_key=os.getenv('CLOUD_API_KEY'),
-    api_secret=os.getenv('CLOUD_API_SECRET'),
-    secure=True
-)
-
-from PyPDF2 import PdfReader
-from datetime import datetime
 
 @app.route('/upload-pdf', methods=['POST'])
 def upload_pdf():
+    # Check if user is logged in
+    if not check_auth():
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+        
     if 'pdf' not in request.files:
         return jsonify({"error": "No PDF file uploaded"}), 400
     
@@ -45,13 +86,17 @@ def upload_pdf():
     #reset file pointer after reading
     file.seek(0)
     
-   # Step 1: Upload PDF to Cloudinary
+    # Step 1: Upload PDF to Cloudinary
     try:
         upload_result = cloudinary.uploader.upload(
             file,
             resource_type="raw",
             folder="pdf_books",  # Optional: Organize PDFs in Cloudinary
-            format="pdf"
+            format="pdf",
+            type="upload",
+            access_mode="public",  # Make sure it's public
+            use_filename=True,
+            unique_filename=True
         )
         pdf_url = upload_result["secure_url"]
         file_size = upload_result.get("bytes", 0)
@@ -71,7 +116,7 @@ def upload_pdf():
     except Exception as e:
         return jsonify({"error": f"Metadata extraction failed: {str(e)}"}), 500
 
- # Step 3: Save to Database
+    # Step 3: Save to Database
     try:
         book = Book(
             title=metadata["title"],
@@ -111,6 +156,7 @@ def extract_pdf_metadata(pdf_file):
         "author": author,
         "page_count": len(pdf.pages)
     }
+
 def extract_content_preview(pdf_file, max_pages=5, max_chars=10000):
     """Extract text from the first few pages for search indexing"""
     pdf = PdfReader(pdf_file)
@@ -128,7 +174,6 @@ def extract_content_preview(pdf_file, max_pages=5, max_chars=10000):
     return " ".join(content)[:max_chars]
 
 # Replace both search_pdfs functions with this one
-
 @app.route('/search-pdfs')
 def search_pdfs():
     query = request.args.get('q')
@@ -187,8 +232,6 @@ def update_reading_progress():
         db.session.rollback()
         return jsonify({"error": f"Failed to update reading progress: {str(e)}"}), 500
 
-
-# Endpoint to report unauthorized content
 # Endpoint to report unauthorized content
 @app.route('/report-content', methods=['POST'])
 def report_content():
@@ -268,6 +311,7 @@ def manage_bookmarks(book_id):
     
     # Other methods would be implemented similarly
     return jsonify({"message": "Endpoint not fully implemented yet"}), 501
+
 @app.route('/health')
 def health_check():
     return jsonify({"status":"ok"}),200
@@ -292,9 +336,8 @@ def check_protected_endpoints():
     if any(request.path.startswith(endpoint) for endpoint in protected_endpoints) and not session.get('user_id'):
         return jsonify({"error": "unauthorized. please log in"}), 401
 
-
 @app.route('/check-auth', methods=['GET'])
-def check_auth():
+def check_auth_route():
     print("Session data:", session)  # Debugging: Print session data
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
@@ -308,7 +351,6 @@ class HomeResource(Resource):
     def get(self):
         return jsonify({"message": "Welcome to the Book App API!"})
 api.add_resource(HomeResource, "/")
-
 
 class SignupResource(Resource):
     def post(self):
@@ -343,6 +385,7 @@ class LoginResource(Resource):
             print(f"Session set for user: {user.id}")  # Debugging
             return {"message": "Login successful", "user": {"id": user.id, "username": user.username}}, 200
         return {"error": "Invalid credentials"}, 401
+
 class LogoutResource(Resource):
     def post(self):
         if 'user_id' not in session:
@@ -352,7 +395,6 @@ class LogoutResource(Resource):
 
 api.add_resource(LoginResource, '/login')
 api.add_resource(LogoutResource, '/logout')
-
 
 @app.errorhandler(404)
 def handle_404_error(e):
@@ -376,7 +418,6 @@ class UserInfo(Resource):
             return {'error': 'Username and password are required'}, 422
 
         try:
-    
             new_user = User(username=username)
             new_user.set_password(password)
             db.session.add(new_user)
@@ -536,13 +577,9 @@ class ReadingListResource(Resource):
         if len(books) != len(book_ids):
             return {'error': 'One or more books not found'}, 404
       
-
-
-
         try:
             reading_list = ReadingList(name=name, user_id=user_id)
            
-
             for book_id in book_ids:
                 book = Book.query.get(book_id)
                 if book:
@@ -577,8 +614,6 @@ class ReadingListResource(Resource):
         if len(books) != len(book_ids):
             return {'error': 'One or more books not found'}, 404
         
-
-
         ReadingListBook.query.filter_by(reading_list_id=reading_list.id).delete()
         for book in books:
             reading_list_book = ReadingListBook(book=book, reading_list=reading_list)
@@ -612,5 +647,6 @@ api.add_resource(
     '/reading-lists',
     '/reading-lists/<int:list_id>'
 )
+
 if __name__ == "__main__":
     app.run(debug=True)
